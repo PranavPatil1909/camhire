@@ -1,20 +1,20 @@
-import React, { useState} from "react";
+import React, { useState, useEffect} from "react";
 import Pagination from "./Pagination";
 import Pagination_mobile from "./Pagination-mobile";
 import Card from "./Card";
 import Collapsible_2 from './collapsible-2.jsx';
 import './photographers.css'
 import { useMediaQuery } from "react-responsive";
-
-
-
-
+import axios from 'axios';
+import AWS from 'aws-sdk';
 
 export const Photographers = (props) => {
-
+  
   const [showing, setIsShowing] = useState(true);
   const [photographerIndex, setPhotographerIndex] = useState(-1);
   const [productDataList, setProductDataList] = useState([]);
+  const [image, setImage] = useState([]);
+  const[decImage, setdecImage] =useState('');
 
   const isDesktopOrLaptop = useMediaQuery({
     query: '(min-width: 1224px)'
@@ -39,12 +39,42 @@ export const Photographers = (props) => {
   const [isReadMore, setIsReadMore] = useState(false);
   const readFunctionality = () => {
     setIsReadMore(!isReadMore)
-
-    
   }
   const onChangePage = (pageOfItems) => {
     setProductDataList(pageOfItems)
-  };
+  }
+
+  useEffect(() => {
+    AWS.config.update({
+      accessKeyId: process.env.REACT_APP_AWS_ACCESS_KEY_ID,
+      secretAccessKey: process.env.REACT_APP_AWS_SECRET_ACCESS_KEY,
+      region: "ap-south-1",
+    });
+    const s3 = new AWS.S3();
+    const API_URL = process.env.REACT_APP_API_URL;
+
+    axios.get(`${API_URL}/photographers`)
+  .then((response)=>{
+    //console.log(response.data.photographers);
+    setImage(response.data.photographers[0].images);
+  });
+    var params = {
+      Bucket: process.env.REACT_APP_S3_BUCKET_NAME, 
+      Key: image[0]
+     };
+     s3.getObject(params, function(err, data) {
+       if (err) console.log(err, err.stack); // an error occurred
+       else{
+        // img = `data:image/png;base64, ${data.Body.toString('base64')}`;
+        //console.log(data);           // successful response
+        var c= new Blob([ new Uint8Array(data.Body, 512, 128)]);
+        const url =URL.createObjectURL(c);
+        setdecImage(url);
+        //console.log(url);
+        
+       }
+     });
+  }, [image[0]]);
   return (
     <>
       {showing && photographerIndex === -1 ?

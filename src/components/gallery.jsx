@@ -1,12 +1,23 @@
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback , useEffect} from "react";
 import ReactPlayer from 'react-player'
+
+import axios from "axios";
+
+import AWS from 'aws-sdk';
 
 import { useMediaQuery } from "react-responsive";
 export const Gallery = props => {
   
   const [currentImage, setCurrentImage] = useState(0);
   const [isViewerOpen, setIsViewerOpen] = useState(false);
-
+const [imagedict, setImagedict] = useState({});
+ const [image, setImage] = useState('');
+  const [decImage, setdecImage] = useState('');
+  
+ const[theme, setTheme]= useState('');
+ //let arr=[];
+  
+  const [arr, setArr] = useState([]);
   const isDesktopOrLaptop = useMediaQuery({
     query: '(min-width: 1224px)'
   })
@@ -35,12 +46,13 @@ export const Gallery = props => {
     { heading:"Product", image:"img/gallery/product.jpg", video: "https://www.youtube.com/watch?v=ysz5S6PUM-U", title: "Lorem Ipsum1", data: "Sed enim turpis, tempor sit amet libero quis, molestie sagittis massa. Orci varius natoque penatibus et magnis dis parturient montes, nascetur ridiculus mus. " },
     { heading:"Model", image:"img/gallery/model.jpg", video: "https://www.youtube.com/watch?v=ysz5S6PUM-U", title: "Maternity", data: "Sed enim turpis, tempor sit amet libero quis, molestie sagittis massa. Orci varius natoque penatibus et magnis dis parturient montes, nascetur ridiculus mus. " },
     { heading:"Branding", image:"img/gallery/tshirt.jpg", video: "https://www.youtube.com/watch?v=v7h7HRMe28A", title: "Lorem Ipsum1", data: "Sed enim turpis, tempor sit amet libero quis, molestie sagittis massa. Orci varius natoque penatibus et magnis dis parturient montes, nascetur ridiculus mus. " },
-    { heading:"Haldi", image:"img/gallery/haldi.jpg", video: "https://www.youtube.com/watch?v=ysz5S6PUM-U", title: "Lorem Ipsum1", data: "Sed enim turpis, tempor sit amet libero quis, molestie sagittis massa. Orci varius natoque penatibus et magnis dis parturient montes, nascetur ridiculus mus. " },
+    { heading:"Haldi", image:"img/gallery/tshirt.jpg", video: "https://www.youtube.com/watch?v=ysz5S6PUM-U", title: "Lorem Ipsum1", data: "Sed enim turpis, tempor sit amet libero quis, molestie sagittis massa. Orci varius natoque penatibus et magnis dis parturient montes, nascetur ridiculus mus. " },
   
   ];
 
+
   const openImageViewer = useCallback(index => {
-  console.log(window.pageYOffset)
+  console.log(window.pageYOffset) 
     setCurrentImage(index);
     setIsViewerOpen(true);
     
@@ -55,8 +67,77 @@ export const Gallery = props => {
     setCurrentImage(0);
     setIsViewerOpen(false);
   };
+//  const [image, setImage] = useState('');
+//  const[decImage, setdecImage] =useState('');
+ 
+  useEffect(() => {
+    AWS.config.update({
+      accessKeyId: process.env.REACT_APP_AWS_ACCESS_KEY_ID,
+      secretAccessKey: process.env.REACT_APP_AWS_SECRET_ACCESS_KEY,
+      region: "ap-south-1",
+    });
+    const s3 = new AWS.S3();
+    const API_URL = process.env.REACT_APP_API_URL;
+
+    axios.get(`${API_URL}/gallery`)
+  .then((response)=>{
+    //console.log(response.data.Galleries);
+    setImage(response.data.Galleries[0].img);
+    for (var i=0;i<6; i++)
+    {
+      console.log(i);
+    
+    setTheme(response.data.Galleries[i].theme);
+    var params = {
+      Bucket: process.env.REACT_APP_S3_BUCKET_NAME, 
+      Key: image
+     };
+      s3.getObject(params, function (err, data)
+      {
+        if (err)
+          console.log(err, err.stack); // an error occurred
+        else{
+        
+         var c= new Blob([ new Uint8Array(data.Body, 512, 128)]);
+         const url = URL.createObjectURL(c);
+         console.log(url);
+          setArr(arr => [...arr, url]);
+          setTheme(url);
+          
+         //setArr.push(url);
+         //setdecImage(url);
+         //console.log(url);
+         
+        
+       }
+     });}
+     console.log(theme);
+  });
+  // for (var i=0;i<6; i++)
+  // {
+    
+  //   var params = {
+  //     Bucket: process.env.REACT_APP_S3_BUCKET_NAME, 
+  //     Key: image
+  //    };
+  //    s3.getObject(params, function(err, data) {
+  //      if (err) console.log(err, err.stack); // an error occurred
+  //      else{
+        
+  //        var c= new Blob([ new Uint8Array(data.Body, 512, 128)]);
+  //        const url =URL.createObjectURL(c);
+  //        setdecImage(url);
+  //        console.log(url);
+  //        //setlink(url);
+        
+  //      }
+  //    });}
+    }, [image]);
+  
+
 
   return (
+    
     <div id="portfolio" className="text-center">
       <div className="container">
         <div className="section-title">
@@ -72,17 +153,24 @@ export const Gallery = props => {
           <p>Welcome to a larger-than-life experience with us.</p>
           </>}
                           </div>
-        {!isViewerOpen ?
+        {!isViewerOpen && arr.length!==0 ?
         <div className="row">
-          <div className="portfolio-items">
-            {data.map(({ title, video, image }, index) => (
-              <div key={index} onClick={() => openImageViewer(index)} className="col-sm-6 col-md-4 col-lg-4">
-                <div className="portfolio-item cursor">
-                <img src={image} style = {{width:"450px",height:"300px"}} className="img-responsive" alt="Project Title" />{" "}
+              <div className="portfolio-items">
+                {
+                  
+                  arr.length !== 0 ? <>
+                    {arr.map((d, i) => (
+                      <div key={i} onClick={() => openImageViewer(i)} className="col-sm-6 col-md-4 col-lg-4">
+                        <div className="portfolio-item cursor">
+                          <img src={theme} style={{ width: "450px", height: "300px" }} className="img-responsive" alt="Project Title" />{" "}
       
-                    </div>
+                        </div>
                       </div>
-            ))}
+                      ))}
+                  </> : <>{console.log(arr) }</>}
+            
+                
+            
           </div>
           
         </div>
@@ -114,5 +202,5 @@ height = {"76%"}
 
     </div>
     </div>
-  );
+    );
 };
